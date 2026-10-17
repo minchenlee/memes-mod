@@ -1,0 +1,5 @@
+{
+  "name": "memes-mod",
+  "owner": { "name": "minchenlee" },
+  "plugins": [{ "name": "memes", "source": "./" }]
+}
