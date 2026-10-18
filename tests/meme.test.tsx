@@ -198,3 +198,39 @@ test('the tool row is left to the engine on every surface', async ($, on) => {
     expect(await ui.find({ type: 'Text', text: 'engine' })).toBeDefined()
   }
 })
+
+const COMPOSE = { model: 'claude-opus-5-5', promptModel: 'claude-opus-5-5', surfaces: [], outputStyle: null, traits: [] }
+
+test('the system prompt tells Claude to post memes on its own, even in work an agent handed over', async ($, on) => {
+  stand(on)
+  on('prompt.compose', () => ({ sections: [{ id: 'intro', text: 'You are Claude Code.', scope: 'shared' }] }))
+  const { sections } = await $.prompt.compose({ ...COMPOSE, tools: [TOOL] })
+  const mine = sections.find(s => s.id === 'memes:policy')
+  expect(mine).toBeDefined()
+  expect(mine!.scope).toBe('session')
+  expect(mine!.text).toContain(TOOL)
+  expect(mine!.text).toMatch(/another agent/i)
+  expect(sections[0]!.id).toBe('intro')
+})
+
+test('without the meme tool in the request the system prompt is left alone', async ($, on) => {
+  stand(on)
+  on('prompt.compose', () => ({ sections: [{ id: 'intro', text: 'You are Claude Code.', scope: 'shared' }] }))
+  const { sections } = await $.prompt.compose({ ...COMPOSE, tools: ['Bash'] })
+  expect(sections.map(s => s.id)).toEqual(['intro'])
+})
+
+const fontSizes = (svg: string) => [...svg.matchAll(/font-size="(\d+)"/g)].map(m => Number(m[1]))
+
+test('text on a tilted sign is turned with it', async () => {
+  const svg = svgOf('two-buttons', 'orig/two-buttons.jpg', 317, 480, 'ship it / write tests')
+  expect(svg.match(/rotate\(-\d+/g)?.length).toBe(2)
+})
+
+test('the small boardroom bubbles get a bubble big enough to read', async () => {
+  const svg = svgOf('boardroom-suggestion', 'orig/boardroom-suggestion.jpg', 370, 480, 'how do we fix CI / add retries / more retries / fix the flaky test')
+  const sizes = fontSizes(svg)
+  expect(sizes.length).toBeGreaterThanOrEqual(4)
+  expect(Math.min(...sizes)).toBeGreaterThanOrEqual(14)
+  expect(svg.match(/<rect /g)?.length).toBe(3)
+})

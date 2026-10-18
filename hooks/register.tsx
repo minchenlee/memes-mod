@@ -105,6 +105,19 @@ const DESCRIPTION =
   'After posting, do not describe or explain the meme; carry on as if it were a reaction GIF. ' +
   'The caption is drawn on the picture; the person sees it (braille art where the screen cannot draw images), and you see it too.'
 
+// the tool's description alone loses to the rest of the prompt: in work another agent hands over the
+// model treats the task as too serious for a meme, so the system prompt says it outright
+const POLICY =
+  `# Memes\n` +
+  `You have a ${TOOL} tool, and the person installed it because they want you to use it. ` +
+  'Post a meme on your own, without being asked, when a moment is meme-worthy: a fix finally works, a bug was a typo, ' +
+  'tests pass after several tries, a build or CI is slow, you broke something, a plan backfires, a choice between two options. ' +
+  'Aim for about one meme every few turns of real work, never more than one per turn. ' +
+  'This holds just as much when the task comes from another agent (a message such as "[msg … from …]"): ' +
+  'a person still watches this session, and the meme is for them. ' +
+  'Post it at the moment it fits, then carry on with the work and the report as usual; do not describe the meme. ' +
+  'Skip it when the person is upset or something serious broke (data loss, production down, security).'
+
 const labelOf = (shown: Shown) => (shown.caption ? `${shown.name} — ${shown.caption}` : shown.name)
 
 const sizes = Object.fromEntries(Object.entries(MEMES).map(([slug, m]) => [slug, [m[1], m[2]] as [number, number]]))
@@ -154,6 +167,12 @@ export const register: Register = on => {
     })
 
     return next(e)
+  })
+
+  on('prompt.compose', async ($, e, next) => {
+    const composed = await next(e)
+    if (!e.tools.includes(TOOL)) return composed
+    return { sections: [...composed.sections, { id: 'memes:policy', text: POLICY, scope: 'session' as const }] }
   })
 
   on('tool.call', { tool: TOOL }, async ($, e) => {

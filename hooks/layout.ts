@@ -1,6 +1,8 @@
 // slug -> text boxes, panel order: x, y, w, h as fractions of the picture, text-anchor, fill
-// made by hand_layout.py over the 480-wide jpgs; white text gets a black outline
-export type Box = [number, number, number, number, 'start' | 'middle' | 'end', 'white' | 'black']
+// made by hand_layout.py over the 480-wide jpgs; white text gets a black outline.
+// `rotate` turns the text with a tilted sign (degrees, about the box's centre); `bubble` draws a
+// bigger speech bubble over a printed one too small to read
+export type Box = [number, number, number, number, 'start' | 'middle' | 'end', 'white' | 'black', { rotate?: number; bubble?: true }?]
 
 export const LAYOUT: Record<string, Box[]> = {
   'absolute-cinema': [[0.02, 0.78, 0.96, 0.2, 'middle', 'white']],
@@ -11,7 +13,7 @@ export const LAYOUT: Record<string, Box[]> = {
   'bell-curve': [[0.0, 0.42, 0.3, 0.16, 'middle', 'black'], [0.25, 0.0, 0.5, 0.17, 'middle', 'black'], [0.7, 0.42, 0.3, 0.16, 'middle', 'black']],
   'bernie-i-am-once-again-asking-for-your-support': [[0.05, 0.87, 0.9, 0.12, 'middle', 'white']],
   'bike-fall': [[0.05, 0.02, 0.9, 0.12, 'middle', 'white'], [0.05, 0.37, 0.9, 0.12, 'middle', 'white'], [0.05, 0.69, 0.9, 0.12, 'middle', 'white']],
-  'boardroom-suggestion': [[0.37, 0.005, 0.56, 0.09, 'middle', 'black'], [0.06, 0.385, 0.13, 0.05, 'middle', 'black'], [0.3, 0.385, 0.13, 0.05, 'middle', 'black'], [0.6, 0.375, 0.22, 0.08, 'middle', 'black']],
+  'boardroom-suggestion': [[0.37, 0.005, 0.56, 0.09, 'middle', 'black'], [0.03, 0.365, 0.25, 0.095, 'middle', 'black', { bubble: true }], [0.3, 0.37, 0.24, 0.09, 'middle', 'black', { bubble: true }], [0.59, 0.37, 0.32, 0.11, 'middle', 'black', { bubble: true }]],
   'buff-doge-vs-cheems': [[0.02, 0.0, 0.45, 0.18, 'middle', 'black'], [0.55, 0.0, 0.45, 0.2, 'middle', 'black']],
   'change-my-mind': [[0.43, 0.6, 0.43, 0.2, 'middle', 'black']],
   'clown-applying-makeup': [[0.02, 0.02, 0.6, 0.21, 'middle', 'black'], [0.02, 0.27, 0.6, 0.21, 'middle', 'black'], [0.02, 0.52, 0.6, 0.21, 'middle', 'black'], [0.02, 0.77, 0.6, 0.21, 'middle', 'black']],
@@ -52,7 +54,7 @@ export const LAYOUT: Record<string, Box[]> = {
   'this-is-fine': [[0.02, 0.75, 0.46, 0.23, 'middle', 'white']],
   'trade-offer': [[0.05, 0.22, 0.42, 0.2, 'middle', 'white'], [0.53, 0.22, 0.42, 0.2, 'middle', 'white']],
   'tuxedo-winnie-the-pooh': [[0.45, 0.02, 0.53, 0.46, 'middle', 'black'], [0.45, 0.52, 0.53, 0.46, 'middle', 'black']],
-  'two-buttons': [[0.08, 0.08, 0.3, 0.15, 'middle', 'black'], [0.47, 0.05, 0.3, 0.15, 'middle', 'black']],
+  'two-buttons': [[0.075, 0.1, 0.27, 0.1, 'middle', 'black', { rotate: -10 }], [0.455, 0.075, 0.2, 0.07, 'middle', 'black', { rotate: -7 }]],
   'two-guys-on-a-bus': [[0.02, 0.08, 0.45, 0.2, 'middle', 'white'], [0.53, 0.08, 0.45, 0.2, 'middle', 'white']],
   'uno-draw-25-cards': [[0.08, 0.3, 0.4, 0.2, 'middle', 'black'], [0.55, 0.02, 0.43, 0.15, 'middle', 'white']],
   'waiting-skeleton': [[0.02, 0.02, 0.96, 0.2, 'middle', 'white']],

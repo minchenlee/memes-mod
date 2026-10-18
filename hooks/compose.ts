@@ -48,10 +48,14 @@ export const svgOf = (meme: string, href: string, width: number, height: number,
     `<image href="${href}" width="${width}" height="${height}"/>`,
   ]
   const parts = panels(meme, caption)
-  LAYOUT[meme]!.forEach(([x, y, w, h, align, color], n) => {
+  LAYOUT[meme]!.forEach(([x, y, w, h, align, color, { rotate, bubble } = {}], n) => {
     const part = parts[n]
     if (!part) return
-    const [bx, by, bw, bh] = [x * width, y * height, w * width, h * height]
+    const [ox, oy, ow, oh] = [x * width, y * height, w * width, h * height]
+    if (rotate) out.push(`<g transform="rotate(${rotate} ${(ox + ow / 2).toFixed(1)} ${(oy + oh / 2).toFixed(1)})">`)
+    if (bubble) out.push(`<rect x="${ox.toFixed(1)}" y="${oy.toFixed(1)}" width="${ow.toFixed(1)}" height="${oh.toFixed(1)}" rx="${(oh / 3).toFixed(1)}" fill="white" stroke="black" stroke-width="1.5"/>`)
+    // inside a bubble the text keeps off its outline
+    const [bx, by, bw, bh] = bubble ? [ox + 5, oy + 3, ow - 10, oh - 6] : [ox, oy, ow, oh]
     const [size, lines] = fit(part, bw, bh)
     const top = by + (bh - lines.length * size * LEADING) / 2 + size * 0.86
     const left = align === 'start' ? bx : align === 'middle' ? bx + bw / 2 : bx + bw
@@ -65,6 +69,7 @@ export const svgOf = (meme: string, href: string, width: number, height: number,
           `text-anchor="${align}" ${paint}>${escape(line)}</text>`,
       ),
     )
+    if (rotate) out.push('</g>')
   })
   out.push('</svg>')
   return out.join('\n')

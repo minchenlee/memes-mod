@@ -1,1 +1,1 @@
-{ "name": "memes", "version": "0.1.0", "description": "Claude posts a reaction meme: the image where the surface can draw it, 80-wide braille where it cannot" }
+{ "name": "memes", "version": "0.2.0", "description": "Claude posts a reaction meme: the image where the surface can draw it, 80-wide braille where it cannot", "author": { "name": "minchenlee" } }
