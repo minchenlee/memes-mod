@@ -48,21 +48,32 @@ You do not have to ask. When a moment fits, Claude posts a meme by itself, for e
 - Tests pass after several tries, or a build is slow.
 - A plan backfires, or there is a choice between two options.
 
-Claude posts about one meme every few turns of real work, and never more than one per turn. This also applies when another agent hands Claude the task. After a meme, Claude continues the work and does not explain the meme.
+By default, Claude posts about one meme every few turns of real work, and never more than one per turn. You can change this (see below). This also applies when another agent hands Claude the task. After a meme, Claude continues the work and does not explain the meme.
 
 Claude does not post a meme when you are upset or when something serious broke (data loss, production down, a security problem).
 
-### Stop or reduce the memes
+### Choose how often
 
-There is no setting for how often Claude posts memes. To stop all memes, disable the plugin:
+Open `/config` and find **Meme frequency** under the memes plugin. Pick one:
+
+| Value | What Claude does |
+| --- | --- |
+| `off` | Posts no meme on its own. `/meme` still works. |
+| `rare` | Posts a meme only at a big moment, such as the end of a long bug hunt. Most sessions get none. |
+| `normal` (default) | About one meme every few turns of real work. |
+| `often` | Posts a meme whenever a moment fits. |
+
+In every value, Claude posts at most one meme per turn and skips memes when something serious broke. The change applies to the next prompt.
+
+To get fewer memes in one session only, tell Claude, for example "no more memes in this session".
+
+To turn off the plugin completely, including `/meme`:
 
 ```
 /plugin disable memes
 ```
 
 Or from a shell: `claude plugin disable memes`. To turn it back on, use `enable` in place of `disable`.
-
-To get fewer memes in one session, tell Claude, for example "no more memes in this session".
 
 ## Templates
 

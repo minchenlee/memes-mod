@@ -1,1 +1,22 @@
-{ "name": "memes", "version": "0.2.0", "description": "Claude posts a reaction meme: the image where the surface can draw it, 80-wide braille where it cannot", "author": { "name": "minchenlee" } }
+{
+  "name": "memes",
+  "version": "0.3.0",
+  "description": "Claude posts a reaction meme: the image where the surface can draw it, 80-wide braille where it cannot",
+  "author": {
+    "name": "minchenlee"
+  },
+  "userConfig": {
+    "frequency": {
+      "type": "string",
+      "title": "Meme frequency",
+      "description": "How often Claude posts a meme without being asked. off: never (/meme still works). rare: only big moments. normal: about one every few turns. often: whenever a moment fits.",
+      "default": "normal",
+      "options": [
+        "off",
+        "rare",
+        "normal",
+        "often"
+      ]
+    }
+  }
+}

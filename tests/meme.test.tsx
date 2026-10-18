@@ -1,4 +1,4 @@
-import { expect, test } from 'claude-code/testing'
+import { expect, test, type TestBody } from 'claude-code/testing'
 import type { On } from 'claude-code'
 import { panels, plainCaption, svgOf } from '../hooks/compose'
 
@@ -218,6 +218,38 @@ test('without the meme tool in the request the system prompt is left alone', asy
   on('prompt.compose', () => ({ sections: [{ id: 'intro', text: 'You are Claude Code.', scope: 'shared' }] }))
   const { sections } = await $.prompt.compose({ ...COMPOSE, tools: ['Bash'] })
   expect(sections.map(s => s.id)).toEqual(['intro'])
+})
+
+const policyOf = async ($: Parameters<TestBody>[0], on: On) => {
+  stand(on)
+  on('prompt.compose', () => ({ sections: [{ id: 'intro', text: 'You are Claude Code.', scope: 'shared' }] }))
+  const { sections } = await $.prompt.compose({ ...COMPOSE, tools: [TOOL] })
+  return sections.find(s => s.id === 'memes:policy')?.text
+}
+
+test('frequency off: Claude posts no meme on its own', { options: { frequency: 'off' } }, async ($, on) => {
+  expect(await policyOf($, on)).toBeUndefined()
+})
+
+test('frequency rare: only the big moments', { options: { frequency: 'rare' } }, async ($, on) => {
+  const text = await policyOf($, on)
+  expect(text).toContain(TOOL)
+  expect(text).toMatch(/rarely/i)
+  expect(text).not.toMatch(/every few turns/i)
+})
+
+test('frequency often: whenever a moment fits', { options: { frequency: 'often' } }, async ($, on) => {
+  const text = await policyOf($, on)
+  expect(text).toMatch(/whenever/i)
+  expect(text).not.toMatch(/every few turns/i)
+})
+
+test('with no setting the frequency is normal: about one every few turns', async ($, on) => {
+  expect(await policyOf($, on)).toMatch(/every few turns/i)
+})
+
+test('every frequency but off still says to skip a meme when something serious broke', async ($, on) => {
+  expect(await policyOf($, on)).toMatch(/security/i)
 })
 
 const fontSizes = (svg: string) => [...svg.matchAll(/font-size="(\d+)"/g)].map(m => Number(m[1]))

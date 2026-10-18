@@ -106,13 +106,25 @@ const DESCRIPTION =
   'The caption is drawn on the picture; the person sees it (braille art where the screen cannot draw images), and you see it too.'
 
 // the tool's description alone loses to the rest of the prompt: in work another agent hands over the
-// model treats the task as too serious for a meme, so the system prompt says it outright
-const POLICY =
+// model treats the task as too serious for a meme, so the system prompt says it outright.
+// How often is the person's choice (userConfig `frequency`); off leaves the prompt alone
+const HOW_OFTEN: Record<string, string> = {
+  rare:
+    'Post one rarely: only at a big moment, such as a long hunt for a bug that finally ends or a plan that backfires badly. ' +
+    'Most sessions need none; never more than one per turn.',
+  normal:
+    'Post one when a moment is meme-worthy: a fix finally works, a bug was a typo, tests pass after several tries, ' +
+    'a build or CI is slow, you broke something, a plan backfires, a choice between two options. ' +
+    'Aim for about one meme every few turns of real work, never more than one per turn.',
+  often:
+    'Post one whenever a moment fits even a little: a fix works, a bug was a typo, tests pass, a build or CI is slow, ' +
+    'you broke something, a plan backfires, a choice between two options. Never more than one per turn.',
+}
+
+const policyOf = (frequency: string) =>
   `# Memes\n` +
-  `You have a ${TOOL} tool, and the person installed it because they want you to use it. ` +
-  'Post a meme on your own, without being asked, when a moment is meme-worthy: a fix finally works, a bug was a typo, ' +
-  'tests pass after several tries, a build or CI is slow, you broke something, a plan backfires, a choice between two options. ' +
-  'Aim for about one meme every few turns of real work, never more than one per turn. ' +
+  `You have a ${TOOL} tool, and the person installed it because they want you to use it, without being asked. ` +
+  `${HOW_OFTEN[frequency] ?? HOW_OFTEN.normal} ` +
   'This holds just as much when the task comes from another agent (a message such as "[msg … from …]"): ' +
   'a person still watches this session, and the meme is for them. ' +
   'Post it at the moment it fits, then carry on with the work and the report as usual; do not describe the meme. ' +
@@ -144,7 +156,9 @@ const pngOf = (output: unknown): string | undefined => {
   return typeof block?.source?.data === 'string' ? block.source.data : undefined
 }
 
-export const register: Register = on => {
+export const register: Register = (on, options) => {
+  const frequency = typeof options.frequency === 'string' ? options.frequency : 'normal'
+
   on('session.start', async ($, e, next) => {
     // the first session fetches the pictures in the background; the tool waits for them
     ensureInstalled($, sizes).catch(error => $.ui.log(`memes: install failed, tried again on the next meme (${error})`))
@@ -171,8 +185,8 @@ export const register: Register = on => {
 
   on('prompt.compose', async ($, e, next) => {
     const composed = await next(e)
-    if (!e.tools.includes(TOOL)) return composed
-    return { sections: [...composed.sections, { id: 'memes:policy', text: POLICY, scope: 'session' as const }] }
+    if (frequency === 'off' || !e.tools.includes(TOOL)) return composed
+    return { sections: [...composed.sections, { id: 'memes:policy', text: policyOf(frequency), scope: 'session' as const }] }
   })
 
   on('tool.call', { tool: TOOL }, async ($, e) => {
