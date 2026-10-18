@@ -199,6 +199,47 @@ test('the tool row is left to the engine on every surface', async ($, on) => {
   }
 })
 
+const group = (tools: string[], isExpanded = false) => ({
+  plugin: 'memes',
+  surface: 'desktop' as const,
+  component: 'ToolGroup' as const,
+  props: {
+    calls: tools.map((tool, i) => ({ tool_use_id: `g${i}`, tool, input: {}, isRunning: false, isErrored: false, isInterrupted: false })),
+    isActive: false,
+    isExpanded,
+  },
+  viewport: { columns: 120, rows: 40 },
+})
+
+// the engine draws whether the group unfolds
+const unfolds = async ($: Parameters<TestBody>[0], on: On, g: ReturnType<typeof group>) => {
+  on('ui.render', { component: 'ToolGroup' }, ($, e) => {
+    const { Text } = $.ui.resolve(e)
+    return <Text>{e.props.isExpanded ? 'unfolded' : 'folded'}</Text>
+  })
+  const ui = await $.ui.mount(g)
+  return (await ui.find({ type: 'Text', text: 'unfolded' })) !== undefined
+}
+
+test('a run of tool calls with a meme in it unfolds', async ($, on) => {
+  expect(await unfolds($, on, group(['Read', TOOL, 'Grep']))).toBe(true)
+})
+
+test('a run of tool calls without a meme stays folded', async ($, on) => {
+  expect(await unfolds($, on, group(['Read', 'Grep']))).toBe(false)
+})
+
+test('a group already unfolded is left as it is', async ($, on) => {
+  expect(await unfolds($, on, group(['Read'], true))).toBe(true)
+})
+
+test('the system prompt asks for a sentence before the meme, so it is not folded with other calls', async ($, on) => {
+  stand(on)
+  on('prompt.compose', () => ({ sections: [{ id: 'intro', text: 'You are Claude Code.', scope: 'shared' }] }))
+  const { sections } = await $.prompt.compose({ ...COMPOSE, tools: [TOOL] })
+  expect(sections.find(s => s.id === 'memes:policy')!.text).toMatch(/sentence of text before the meme call/)
+})
+
 const COMPOSE = { model: 'claude-opus-5-5', promptModel: 'claude-opus-5-5', surfaces: [], outputStyle: null, traits: [] }
 
 test('the system prompt tells Claude to post memes on its own, even in work an agent handed over', async ($, on) => {

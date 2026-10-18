@@ -128,6 +128,7 @@ const policyOf = (frequency: string) =>
   'This holds just as much when the task comes from another agent (a message such as "[msg … from …]"): ' +
   'a person still watches this session, and the meme is for them. ' +
   'Post it at the moment it fits, then carry on with the work and the report as usual; do not describe the meme. ' +
+  'Write a sentence of text before the meme call, so it does not join a run of other tool calls. ' +
   'Skip it when the person is upset or something serious broke (data loss, production down, security).'
 
 const labelOf = (shown: Shown) => (shown.caption ? `${shown.name} — ${shown.caption}` : shown.name)
@@ -214,6 +215,13 @@ export const register: Register = (on, options) => {
   }).catch(($, e, next) => ({
     deny: `memes: the meme tool failed (${next.error.kind}${next.error.message ? `: ${next.error.message}` : ''}).`,
   }))
+
+  // the apps fold a run of tool calls into one line, and a meme in it with them; the group unfolds
+  // whole (isExpanded is the group's, not a row's), so a run with a meme shows every call in it
+  on('ui.render', { component: 'ToolGroup' }, async ($, e, next) => {
+    if (e.props.isExpanded || !e.props.calls.some(c => c.tool === TOOL)) return next(e)
+    return next({ ...e, props: { ...e.props, isExpanded: true } })
+  })
 
   on('ui.render', { component: 'ToolResult' }, async ($, e, next) => {
     const shown = e.props.tool === TOOL && !e.props.isErrored ? parseShown(e.props.output) : undefined
