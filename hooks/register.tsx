@@ -97,7 +97,7 @@ const DESCRIPTION =
   "Post a reaction meme. You are the person's slightly unhinged coding buddy: reach for a meme whenever a moment is " +
   'meme-worthy — you broke something, a fix finally works, a bug turns out to be a typo, tests pass on the fifth try, ' +
   'CI takes forever, the person picks the obviously worse option, a choice between two things, a hot take. ' +
-  'At most once per turn; how often is set in the system prompt. ' +
+  'At most once per turn; how often is set beside each prompt. ' +
   "Write the caption about the actual situation, short and specific, in English only (the picture's font has no other " +
   "script), even when the person writes another language; ' / ' between panels in the order the template's hint gives. " +
   'Roasting yourself beats roasting the person. ' +
@@ -107,8 +107,10 @@ const DESCRIPTION =
 
 // the tool's description alone loses to the rest of the prompt: in work another agent hands over the
 // model treats the task as too serious for a meme, so the system prompt says it outright.
-// How often is the person's choice (userConfig `frequency`); off leaves the prompt alone
+// How often is the person's choice (userConfig `frequency`). It rides beside each prompt, not in the
+// system prompt, so a /config change reaches an open session on its next prompt
 const HOW_OFTEN: Record<string, string> = {
+  off: 'Post no meme on your own; post one only when the person asks for it.',
   rare:
     'Post one rarely: only at a big moment, such as a long hunt for a bug that finally ends or a plan that backfires badly. ' +
     'Most sessions need none; never more than one per turn.',
@@ -123,10 +125,11 @@ const HOW_OFTEN: Record<string, string> = {
     '(tests pass, a long wait, a choice you are asking about) and post it. Never more than one per turn.',
 }
 
-const policyOf = (frequency: string) =>
+const POLICY =
   `# Memes\n` +
-  `You have a ${TOOL} tool, and the person installed it because they want you to use it, without being asked. ` +
-  `${HOW_OFTEN[frequency] ?? HOW_OFTEN.normal} ` +
+  `You have a ${TOOL} tool, and the person installed it so you post memes on your own, without being asked. ` +
+  'How often is their choice: each prompt they send carries a line "Meme frequency: …" with the turns since your last meme. ' +
+  'Follow the latest such line; it is their current choice. ' +
   'This holds just as much when the task comes from another agent (a message such as "[msg … from …]"): ' +
   'a person still watches this session, and the meme is for them. ' +
   'Post it at the moment it fits, then carry on with the work and the report as usual; do not describe the meme. ' +
@@ -148,8 +151,23 @@ const helpOf = (frequency: string) =>
     '/memes:help          Show this help.',
     '',
     `Meme frequency: ${frequency} (${FREQUENCY_SAYS[frequency] ?? FREQUENCY_SAYS.normal})`,
-    'Change it in /config, under Meme frequency: off, rare, normal or often. It applies from the next new session.',
+    'Change it in /config, under Meme frequency: off, rare, normal or often. It applies from your next prompt.',
   ].join('\n')
+
+const noteOf = (frequency: string, turns: number) =>
+  `Meme frequency: ${frequency}. ${HOW_OFTEN[frequency] ?? HOW_OFTEN.normal} Turns since your last meme: ${turns}.`
+
+// the turns since the last meme, kept in a file so a reload (a /config change reloads the plugin)
+// keeps it; a new session starts from 0
+type Count = { session: string; turns: number }
+const countPath = ($: EngineInterface) => `${assetsOf($)}/count.json`
+const readCount = async ($: EngineInterface, session: string): Promise<Count> => {
+  const saved = await $.fs
+    .read(countPath($))
+    .then(text => JSON.parse(text) as Partial<Count>)
+    .catch(() => undefined)
+  return saved?.session === session && typeof saved.turns === 'number' ? { session, turns: saved.turns } : { session, turns: 0 }
+}
 
 const labelOf = (shown: Shown) => (shown.caption ? `${shown.name} — ${shown.caption}` : shown.name)
 
@@ -206,8 +224,28 @@ export const register: Register = (on, options) => {
 
   on('prompt.compose', async ($, e, next) => {
     const composed = await next(e)
-    if (frequency === 'off' || !e.tools.includes(TOOL)) return composed
-    return { sections: [...composed.sections, { id: 'memes:policy', text: policyOf(frequency), scope: 'session' as const }] }
+    // the policy stays in even when off: the frequency can change mid-session, beside a prompt
+    if (!e.tools.includes(TOOL)) return composed
+    return { sections: [...composed.sections, { id: 'memes:policy', text: POLICY, scope: 'session' as const }] }
+  })
+
+  // a turn that posted a meme ends at 0; an answered turn without one adds 1. Subagents, aborts
+  // and errors leave the count as it is
+  let isPosted = false
+  on('turn.complete', async ($, e, next) => {
+    if (e.agentId !== undefined || e.reason !== 'answer') return next(e)
+    const count = await readCount($, await $.session.id())
+    count.turns = isPosted ? 0 : count.turns + 1
+    isPosted = false
+    await $.fs.write(countPath($), JSON.stringify(count))
+    return next(e)
+  })
+
+  // a slash command's own line is not the person's prompt; it gets no note
+  on('prompt.submit', async ($, e, next) => {
+    if (e.command) return next(e)
+    const { turns } = await readCount($, await $.session.id())
+    return next({ ...e, context: [...(e.context ?? []), noteOf(frequency, turns)] })
   })
 
   // answered here, so the help costs no turn and shows the frequency set in /config
@@ -228,6 +266,7 @@ export const register: Register = (on, options) => {
     const ready = await ensureInstalled($, sizes).catch((error: unknown) => String(error))
     if (typeof ready === 'string') return { deny: `memes could not fetch its pictures yet (${ready}). Skip the meme this time.` }
     const image = await pictureOf($, ready, meme, caption || undefined)
+    isPosted = true
 
     return {
       result: [

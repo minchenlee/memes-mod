@@ -71,7 +71,9 @@ Open `/config` and find **Meme frequency** under the memes plugin. Pick one:
 | `normal` (default) | About one meme every few turns of real work. |
 | `often` | Posts a meme whenever a moment fits, in most turns of real work. |
 
-In every value, Claude posts at most one meme per turn and skips memes when something serious broke. The change applies from the next new session. A session that is already open keeps the frequency it started with.
+In every value, Claude posts at most one meme per turn and skips memes when something serious broke. The change applies from your next prompt, also in a session that is already open.
+
+Each prompt you send carries a short note for Claude that you do not see: the frequency and how many turns have passed since the last meme. The count is kept in the plugin's `assets/count.json`, so a `/config` change does not reset it. A new session starts the count at 0.
 
 To get fewer memes in one session only, tell Claude, for example "no more memes in this session".
 

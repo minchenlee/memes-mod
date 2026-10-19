@@ -16,16 +16,19 @@ const stand = (on: On, resvg: string | null | false = '/m/assets/bin/resvg', una
   const runs: Run[] = []
   const reads: string[] = []
   const writes: string[] = []
+  const counts: { saved?: string } = {}
   let installed = resvg !== false
   on('env.get', () => ({ value: undefined }))
   on('fs.exists', ($, e) => ({ value: installed && e.path.endsWith('/ready.json') }))
   on('fs.read', ($, e) => {
     reads.push(e.path)
+    if (e.path.endsWith('/count.json')) return counts.saved ? { value: counts.saved } : Promise.reject(new Error('no file'))
     if (e.path.endsWith('/ready.json')) return { value: JSON.stringify({ version: 1, resvg }) }
     return { value: e.as === 'bytes' ? { base64: PNG_1PX } : '⣿⣿⣿\n⣿⣿⣿\n' }
   })
   on('fs.write', ($, e) => {
     writes.push(e.path)
+    if (e.path.endsWith('/count.json')) counts.saved = e.text
     if (e.path.endsWith('/ready.json')) {
       installed = true
       resvg = JSON.parse(e.text).resvg
@@ -40,7 +43,7 @@ const stand = (on: On, resvg: string | null | false = '/m/assets/bin/resvg', una
     const { Text } = $.ui.resolve(e)
     return <Text>engine</Text>
   })
-  return { runs, reads, writes }
+  return { runs, reads, writes, counts }
 }
 
 type Answer = [{ text: string }, { type: string; source: { media_type: string; data: string } }]
@@ -268,44 +271,99 @@ const policyOf = async ($: Parameters<TestBody>[0], on: On) => {
   return sections.find(s => s.id === 'memes:policy')?.text
 }
 
-test('frequency off: Claude posts no meme on its own', { options: { frequency: 'off' } }, async ($, on) => {
-  expect(await policyOf($, on)).toBeUndefined()
-})
-
-test('frequency rare: only the big moments', { options: { frequency: 'rare' } }, async ($, on) => {
+test('the system prompt leaves how often to the line beside each prompt', { options: { frequency: 'often' } }, async ($, on) => {
   const text = await policyOf($, on)
-  expect(text).toContain(TOOL)
-  expect(text).toMatch(/rarely/i)
-  expect(text).not.toMatch(/every few turns/i)
+  expect(text).toMatch(/Meme frequency: …/)
+  expect(text).not.toMatch(/most turns|every few turns|rarely/i)
 })
 
-test('frequency often: whenever a moment fits', { options: { frequency: 'often' } }, async ($, on) => {
-  const text = await policyOf($, on)
-  expect(text).toMatch(/whenever/i)
-  expect(text).toMatch(/most turns/i)
-  expect(text).not.toMatch(/every few turns/i)
+test('frequency off still keeps the policy, so a change mid-session finds it', { options: { frequency: 'off' } }, async ($, on) => {
+  expect(await policyOf($, on)).toContain(TOOL)
 })
 
-test('with no setting the frequency is normal: about one every few turns', async ($, on) => {
-  expect(await policyOf($, on)).toMatch(/every few turns/i)
-})
-
-test('every frequency but off still says to skip a meme when something serious broke', async ($, on) => {
+test('the system prompt still says to skip a meme when something serious broke', async ($, on) => {
   expect(await policyOf($, on)).toMatch(/security/i)
 })
 
-test('/memes:help answers without the model, with the frequency this session runs with', { options: { frequency: 'often' } }, async ($, on) => {
+test('/memes:help answers without the model, with the frequency set now', { options: { frequency: 'often' } }, async ($, on) => {
   stand(on)
   const { text } = await $.command.run({ command: 'memes:help', args: '', origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 100 } })
   expect(text).toContain('/memes:meme')
   expect(text).toContain('Meme frequency: often (whenever a moment fits)')
-  expect(text).toMatch(/next new session/i)
+  expect(text).toMatch(/next prompt/i)
 })
 
 test('/memes:help with no setting shows normal', async ($, on) => {
   stand(on)
   const { text } = await $.command.run({ command: 'memes:help', args: '', origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 100 } })
   expect(text).toContain('Meme frequency: normal')
+})
+
+// the note beside a prompt: the engine beneath echoes the context it was handed; count.json lives in `stand`
+const counted = (on: On, saved?: object) => {
+  const { counts } = stand(on)
+  if (saved) counts.saved = JSON.stringify(saved)
+  on('session.id', () => ({ value: 's1' }))
+  on('prompt.submit', ($, e) => ({ text: e.text, ...(e.context && { context: e.context }) }))
+  on('turn.complete', ($, e) => ({ text: e.answer }))
+}
+const noteOf = async ($: Parameters<TestBody>[0]) =>
+  ((await $.prompt.submit({ text: 'hi', origin: { kind: 'composer' }, wait: false })) as { context?: readonly string[] }).context?.join('\n')
+const answered = ($: Parameters<TestBody>[0], more: object = {}) =>
+  $.turn.complete({ reason: 'answer', answer: 'ok', text: 'ok', durationMs: 1, isAborted: false, turnId: 't', ...more } as never)
+
+test('each prompt carries the frequency, what it means, and the turns since the last meme', { options: { frequency: 'often' } }, async ($, on) => {
+  counted(on)
+  const note = await noteOf($)
+  expect(note).toMatch(/^Meme frequency: often\. /)
+  expect(note).toMatch(/most turns/i)
+  expect(note).toMatch(/Turns since your last meme: 0\.$/)
+})
+
+test('frequency off: the note says to post only when asked', { options: { frequency: 'off' } }, async ($, on) => {
+  counted(on)
+  expect(await noteOf($)).toMatch(/only when the person asks/)
+})
+
+test('rare and normal say their own cadence', { options: { frequency: 'rare' } }, async ($, on) => {
+  counted(on)
+  const note = await noteOf($)
+  expect(note).toMatch(/rarely/i)
+  expect(note).not.toMatch(/every few turns/i)
+})
+
+test('a slash command gets no note', async ($, on) => {
+  counted(on)
+  const { context } = (await $.prompt.submit({ text: '/memes:help', command: { name: 'memes:help', args: '' }, wait: false } as never)) as { context?: readonly string[] }
+  expect(context).toBeUndefined()
+})
+
+test('an answered turn without a meme adds 1; aborts, errors and subagents do not', async ($, on) => {
+  counted(on)
+  await answered($)
+  await answered($)
+  await answered($, { reason: 'aborted', isAborted: true })
+  await answered($, { agentId: 'a1' })
+  expect(await noteOf($)).toMatch(/Turns since your last meme: 2\.$/)
+})
+
+test('a turn that posted a meme ends at 0', async ($, on) => {
+  counted(on, { session: 's1', turns: 5 })
+  await $.tool.call({ tool: TOOL, tool_use_id: 'u1', meme: 'drake-hotline-bling' } as never)
+  await answered($)
+  expect(await noteOf($)).toMatch(/Turns since your last meme: 0\.$/)
+  await answered($)
+  expect(await noteOf($)).toMatch(/Turns since your last meme: 1\.$/)
+})
+
+test('the count survives a reload in the same session, not a new session', async ($, on) => {
+  counted(on, { session: 's1', turns: 4 })
+  expect(await noteOf($)).toMatch(/Turns since your last meme: 4\.$/)
+})
+
+test('a count from another session starts over at 0', async ($, on) => {
+  counted(on, { session: 'old', turns: 9 })
+  expect(await noteOf($)).toMatch(/Turns since your last meme: 0\.$/)
 })
 
 const fontSizes = (svg: string) => [...svg.matchAll(/font-size="(\d+)"/g)].map(m => Number(m[1]))
@@ -322,3 +380,4 @@ test('the small boardroom bubbles get a bubble big enough to read', async () => 
   expect(Math.min(...sizes)).toBeGreaterThanOrEqual(14)
   expect(svg.match(/<rect /g)?.length).toBe(3)
 })
+
