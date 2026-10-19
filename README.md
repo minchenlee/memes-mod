@@ -69,7 +69,7 @@ Open `/config` and find **Meme frequency** under the memes plugin. Pick one:
 | `off` | Posts no meme on its own. `/memes:meme` still works. |
 | `rare` | Posts a meme only at a big moment, such as the end of a long bug hunt. Most sessions get none. |
 | `normal` (default) | About one meme every few turns of real work. |
-| `often` | Posts a meme whenever a moment fits. |
+| `often` | Posts a meme whenever a moment fits, in most turns of real work. |
 
 In every value, Claude posts at most one meme per turn and skips memes when something serious broke. The change applies from the next new session. A session that is already open keeps the frequency it started with.
 

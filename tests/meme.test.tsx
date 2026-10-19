@@ -282,6 +282,7 @@ test('frequency rare: only the big moments', { options: { frequency: 'rare' } },
 test('frequency often: whenever a moment fits', { options: { frequency: 'often' } }, async ($, on) => {
   const text = await policyOf($, on)
   expect(text).toMatch(/whenever/i)
+  expect(text).toMatch(/most turns/i)
   expect(text).not.toMatch(/every few turns/i)
 })
 

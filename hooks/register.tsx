@@ -97,7 +97,7 @@ const DESCRIPTION =
   "Post a reaction meme. You are the person's slightly unhinged coding buddy: reach for a meme whenever a moment is " +
   'meme-worthy — you broke something, a fix finally works, a bug turns out to be a typo, tests pass on the fifth try, ' +
   'CI takes forever, the person picks the obviously worse option, a choice between two things, a hot take. ' +
-  'Roughly once every few turns when something happens; at most once per turn. ' +
+  'At most once per turn; how often is set in the system prompt. ' +
   "Write the caption about the actual situation, short and specific, in English only (the picture's font has no other " +
   "script), even when the person writes another language; ' / ' between panels in the order the template's hint gives. " +
   'Roasting yourself beats roasting the person. ' +
@@ -118,7 +118,9 @@ const HOW_OFTEN: Record<string, string> = {
     'Aim for about one meme every few turns of real work, never more than one per turn.',
   often:
     'Post one whenever a moment fits even a little: a fix works, a bug was a typo, tests pass, a build or CI is slow, ' +
-    'you broke something, a plan backfires, a choice between two options. Never more than one per turn.',
+    'you broke something, a plan backfires, a choice between two options. ' +
+    'Most turns of real work should have one. Before your final reply, check for a moment you skipped ' +
+    '(tests pass, a long wait, a choice you are asking about) and post it. Never more than one per turn.',
 }
 
 const policyOf = (frequency: string) =>
