@@ -34,11 +34,19 @@ In the desktop app, where `/plugin` does not run: click + next to the prompt box
 ### Ask for a meme
 
 ```
-/meme [topic]
+/memes:meme [topic]
 ```
 
-- `/meme the build finally passed` asks Claude for one meme about that topic.
-- `/meme` with no topic asks for a meme about what just happened in the conversation.
+- `/memes:meme the build finally passed` asks Claude for one meme about that topic.
+- `/memes:meme` with no topic asks for a meme about what just happened in the conversation.
+
+### See the commands and the current frequency
+
+```
+/memes:help
+```
+
+Shows the commands and the meme frequency set in /config. It answers at once and does not use a turn.
 
 ### Claude posts memes on its own
 
@@ -58,16 +66,16 @@ Open `/config` and find **Meme frequency** under the memes plugin. Pick one:
 
 | Value | What Claude does |
 | --- | --- |
-| `off` | Posts no meme on its own. `/meme` still works. |
+| `off` | Posts no meme on its own. `/memes:meme` still works. |
 | `rare` | Posts a meme only at a big moment, such as the end of a long bug hunt. Most sessions get none. |
 | `normal` (default) | About one meme every few turns of real work. |
 | `often` | Posts a meme whenever a moment fits. |
 
-In every value, Claude posts at most one meme per turn and skips memes when something serious broke. The change applies to the next prompt.
+In every value, Claude posts at most one meme per turn and skips memes when something serious broke. The change applies from the next new session. A session that is already open keeps the frequency it started with.
 
 To get fewer memes in one session only, tell Claude, for example "no more memes in this session".
 
-To turn off the plugin completely, including `/meme`:
+To turn off the plugin completely, including `/memes:meme`:
 
 ```
 /plugin disable memes

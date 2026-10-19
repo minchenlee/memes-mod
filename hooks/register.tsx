@@ -131,6 +131,24 @@ const policyOf = (frequency: string) =>
   'Write a sentence of text before the meme call, so it does not join a run of other tool calls. ' +
   'Skip it when the person is upset or something serious broke (data loss, production down, security).'
 
+const FREQUENCY_SAYS: Record<string, string> = {
+  off: 'none on its own; /memes:meme still works',
+  rare: 'only at big moments',
+  normal: 'about one every few turns',
+  often: 'whenever a moment fits',
+}
+
+const helpOf = (frequency: string) =>
+  [
+    'how to use',
+    '',
+    '/memes:meme [topic]  Post one meme now, about the topic or about what just happened.',
+    '/memes:help          Show this help.',
+    '',
+    `Meme frequency: ${frequency} (${FREQUENCY_SAYS[frequency] ?? FREQUENCY_SAYS.normal})`,
+    'Change it in /config, under Meme frequency: off, rare, normal or often. It applies from the next new session.',
+  ].join('\n')
+
 const labelOf = (shown: Shown) => (shown.caption ? `${shown.name} — ${shown.caption}` : shown.name)
 
 const sizes = Object.fromEntries(Object.entries(MEMES).map(([slug, m]) => [slug, [m[1], m[2]] as [number, number]]))
@@ -189,6 +207,9 @@ export const register: Register = (on, options) => {
     if (frequency === 'off' || !e.tools.includes(TOOL)) return composed
     return { sections: [...composed.sections, { id: 'memes:policy', text: policyOf(frequency), scope: 'session' as const }] }
   })
+
+  // answered here, so the help costs no turn and shows the frequency set in /config
+  on('command.run', { command: 'memes:help' }, () => ({ text: helpOf(frequency) }))
 
   on('tool.call', { tool: TOOL }, async ($, e) => {
     // the tool's arguments sit on e itself, beside tool and tool_use_id

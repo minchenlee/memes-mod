@@ -293,6 +293,20 @@ test('every frequency but off still says to skip a meme when something serious b
   expect(await policyOf($, on)).toMatch(/security/i)
 })
 
+test('/memes:help answers without the model, with the frequency this session runs with', { options: { frequency: 'often' } }, async ($, on) => {
+  stand(on)
+  const { text } = await $.command.run({ command: 'memes:help', args: '', origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 100 } })
+  expect(text).toContain('/memes:meme')
+  expect(text).toContain('Meme frequency: often (whenever a moment fits)')
+  expect(text).toMatch(/next new session/i)
+})
+
+test('/memes:help with no setting shows normal', async ($, on) => {
+  stand(on)
+  const { text } = await $.command.run({ command: 'memes:help', args: '', origin: { kind: 'composer' }, presentation: { isFullscreen: false, columns: 100 } })
+  expect(text).toContain('Meme frequency: normal')
+})
+
 const fontSizes = (svg: string) => [...svg.matchAll(/font-size="(\d+)"/g)].map(m => Number(m[1]))
 
 test('text on a tilted sign is turned with it', async () => {
