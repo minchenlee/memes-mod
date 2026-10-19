@@ -16,19 +16,20 @@ const stand = (on: On, resvg: string | null | false = '/m/assets/bin/resvg', una
   const runs: Run[] = []
   const reads: string[] = []
   const writes: string[] = []
-  const counts: { saved?: string } = {}
+  const counts: Record<string, string> = {} // by `counts/<session>.json`
   let installed = resvg !== false
   on('env.get', () => ({ value: undefined }))
   on('fs.exists', ($, e) => ({ value: installed && e.path.endsWith('/ready.json') }))
   on('fs.read', ($, e) => {
     reads.push(e.path)
-    if (e.path.endsWith('/count.json')) return counts.saved ? { value: counts.saved } : Promise.reject(new Error('no file'))
+    const count = counts[e.path.slice(e.path.indexOf('counts/'))]
+    if (e.path.includes('/counts/')) return count !== undefined ? { value: count } : Promise.reject(new Error('no file'))
     if (e.path.endsWith('/ready.json')) return { value: JSON.stringify({ version: 1, resvg }) }
     return { value: e.as === 'bytes' ? { base64: PNG_1PX } : '⣿⣿⣿\n⣿⣿⣿\n' }
   })
   on('fs.write', ($, e) => {
     writes.push(e.path)
-    if (e.path.endsWith('/count.json')) counts.saved = e.text
+    if (e.path.includes('/counts/')) counts[e.path.slice(e.path.indexOf('counts/'))] = e.text
     if (e.path.endsWith('/ready.json')) {
       installed = true
       resvg = JSON.parse(e.text).resvg
@@ -299,11 +300,12 @@ test('/memes:help with no setting shows normal', async ($, on) => {
   expect(text).toContain('Meme frequency: normal')
 })
 
-// the note beside a prompt: the engine beneath echoes the context it was handed; count.json lives in `stand`
-const counted = (on: On, saved?: object) => {
+// the note beside a prompt: the engine beneath echoes the context it was handed; the counts live in `stand`
+// saved: each session's turns as its file holds them
+const counted = (on: On, saved: Record<string, number> = {}, session = 's1') => {
   const { counts } = stand(on)
-  if (saved) counts.saved = JSON.stringify(saved)
-  on('session.id', () => ({ value: 's1' }))
+  for (const [id, turns] of Object.entries(saved)) counts[`counts/${id}.json`] = JSON.stringify({ turns })
+  on('session.id', () => ({ value: session }))
   on('prompt.submit', ($, e) => ({ text: e.text, ...(e.context && { context: e.context }) }))
   on('turn.complete', ($, e) => ({ text: e.answer }))
 }
@@ -348,7 +350,7 @@ test('an answered turn without a meme adds 1; aborts, errors and subagents do no
 })
 
 test('a turn that posted a meme ends at 0', async ($, on) => {
-  counted(on, { session: 's1', turns: 5 })
+  counted(on, { s1: 5 })
   await $.tool.call({ tool: TOOL, tool_use_id: 'u1', meme: 'drake-hotline-bling' } as never)
   await answered($)
   expect(await noteOf($)).toMatch(/Turns since your last meme: 0\.$/)
@@ -356,14 +358,25 @@ test('a turn that posted a meme ends at 0', async ($, on) => {
   expect(await noteOf($)).toMatch(/Turns since your last meme: 1\.$/)
 })
 
-test('the count survives a reload in the same session, not a new session', async ($, on) => {
-  counted(on, { session: 's1', turns: 4 })
+test('the count survives a reload in the same session', async ($, on) => {
+  counted(on, { s1: 4 })
   expect(await noteOf($)).toMatch(/Turns since your last meme: 4\.$/)
 })
 
-test('a count from another session starts over at 0', async ($, on) => {
-  counted(on, { session: 'old', turns: 9 })
+test('a new session starts at 0, whatever another session counted', async ($, on) => {
+  counted(on, { other: 9 })
   expect(await noteOf($)).toMatch(/Turns since your last meme: 0\.$/)
+})
+
+test('a session open beside another keeps its own count', async ($, on) => {
+  const { counts } = stand(on)
+  counts['counts/s2.json'] = JSON.stringify({ turns: 7 })
+  on('session.id', () => ({ value: 's1' }))
+  on('prompt.submit', ($, e) => ({ text: e.text, ...(e.context && { context: e.context }) }))
+  on('turn.complete', ($, e) => ({ text: e.answer }))
+  await answered($)
+  expect(await noteOf($)).toMatch(/Turns since your last meme: 1\.$/)
+  expect(counts['counts/s2.json']).toBe(JSON.stringify({ turns: 7 }))
 })
 
 const fontSizes = (svg: string) => [...svg.matchAll(/font-size="(\d+)"/g)].map(m => Number(m[1]))

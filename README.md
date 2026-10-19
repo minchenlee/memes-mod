@@ -73,7 +73,7 @@ Open `/config` and find **Meme frequency** under the memes plugin. Pick one:
 
 In every value, Claude posts at most one meme per turn and skips memes when something serious broke. The change applies from your next prompt, also in a session that is already open.
 
-Each prompt you send carries a short note for Claude that you do not see: the frequency and how many turns have passed since the last meme. The count is kept in the plugin's `assets/count.json`, so a `/config` change does not reset it. A new session starts the count at 0.
+Each prompt you send carries a short note for Claude that you do not see: the frequency and how many turns have passed since the last meme. Each session keeps its own count in the plugin's `assets/counts/` folder, so a `/config` change does not reset it, and sessions open side by side do not mix their counts. A new session starts the count at 0.
 
 To get fewer memes in one session only, tell Claude, for example "no more memes in this session".
 

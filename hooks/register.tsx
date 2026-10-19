@@ -157,16 +157,15 @@ const helpOf = (frequency: string) =>
 const noteOf = (frequency: string, turns: number) =>
   `Meme frequency: ${frequency}. ${HOW_OFTEN[frequency] ?? HOW_OFTEN.normal} Turns since your last meme: ${turns}.`
 
-// the turns since the last meme, kept in a file so a reload (a /config change reloads the plugin)
-// keeps it; a new session starts from 0
-type Count = { session: string; turns: number }
-const countPath = ($: EngineInterface) => `${assetsOf($)}/count.json`
-const readCount = async ($: EngineInterface, session: string): Promise<Count> => {
+// the turns since the last meme, one file per session so sessions open side by side do not
+// overwrite each other; a reload (a /config change reloads the plugin) keeps it
+const countPath = ($: EngineInterface, session: string) => `${assetsOf($)}/counts/${session}.json`
+const readCount = async ($: EngineInterface, session: string) => {
   const saved = await $.fs
-    .read(countPath($))
-    .then(text => JSON.parse(text) as Partial<Count>)
+    .read(countPath($, session))
+    .then(text => JSON.parse(text) as { turns?: unknown })
     .catch(() => undefined)
-  return saved?.session === session && typeof saved.turns === 'number' ? { session, turns: saved.turns } : { session, turns: 0 }
+  return typeof saved?.turns === 'number' ? saved.turns : 0
 }
 
 const labelOf = (shown: Shown) => (shown.caption ? `${shown.name} — ${shown.caption}` : shown.name)
@@ -234,17 +233,17 @@ export const register: Register = (on, options) => {
   let isPosted = false
   on('turn.complete', async ($, e, next) => {
     if (e.agentId !== undefined || e.reason !== 'answer') return next(e)
-    const count = await readCount($, await $.session.id())
-    count.turns = isPosted ? 0 : count.turns + 1
+    const session = await $.session.id()
+    const turns = isPosted ? 0 : (await readCount($, session)) + 1
     isPosted = false
-    await $.fs.write(countPath($), JSON.stringify(count))
+    await $.fs.write(countPath($, session), JSON.stringify({ turns }))
     return next(e)
   })
 
   // a slash command's own line is not the person's prompt; it gets no note
   on('prompt.submit', async ($, e, next) => {
     if (e.command) return next(e)
-    const { turns } = await readCount($, await $.session.id())
+    const turns = await readCount($, await $.session.id())
     return next({ ...e, context: [...(e.context ?? []), noteOf(frequency, turns)] })
   })
 
