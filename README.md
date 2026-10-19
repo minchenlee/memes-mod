@@ -189,6 +189,10 @@ The downloaded images, resvg and the font are only in the plugin's own `assets/`
 - Tested on macOS. Windows and Linux are not tested yet.
 - The template images belong to their owners. This repository does not include them, except in the two example pictures in `docs/`.
 
+## Credits
+
+Thanks to [@chungchihhan](https://github.com/chungchihhan). The idea for this mod grew out of discussions with him.
+
 ## License
 
 The code is under the [MIT License](LICENSE). The template images and the Anton font are not part of this license: the images belong to their owners, and Anton is under the SIL Open Font License.
